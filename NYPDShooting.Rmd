@@ -1,0 +1,19 @@
+---
+title: "NYPDShooting"
+author: "C. Knowles"
+date: "2023-11-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## NYPD Shooting Data  
+
+```{r echo=TRUE} 
+shooting_csv <- read.csv("https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv?accessType=DOWNLOAD")
+shooting_csv
+```  
+
+
