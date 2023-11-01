@@ -1,0 +1,27 @@
+---
+title: "NYPDShooting"
+author: "Calvin Knowles"
+date: "November 1, 2023"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## NYPD Shooting Data  
+
+```{r echo=TRUE} 
+shooting_csv <- read.csv("https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv?accessType=DOWNLOAD")
+```  
+
+```{r tidy_shooting_data}
+library(tidyverse)
+library(magrittr)
+library(dplyr)
+shooting_csv <- shooting_csv %>%
+    pivot_longer(cols = c("OCCUR_DATE", "BORO"),
+                 names_to = "date",
+                 values_to = "incidents") %>%
+    select(c("OCCUR_DATE", "BORO")
+```
