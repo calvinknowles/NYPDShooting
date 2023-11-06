@@ -9,11 +9,102 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## NYPD Shooting Data  
+```{r libraries, echo=FALSE, include=FALSE}
+library(hms)
+library(dplyr)
+library(tidyr)
+library(tibble)
+library(ggplot2)
+```
 
-```{r echo=TRUE} 
+
+## NYPD Shooting l  
+### Cleaning the Data
+
+```{r read and show summary, echo=TRUE} 
 shooting_csv <- read.csv("https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv?accessType=DOWNLOAD")
-shooting_csv
+head(shooting_csv)
+summary(shooting_csv)
+str(shooting_csv)
+```
+Here my approach is to first remove any columns that will be unnecessary for analysis - LOC_OF_OCCUR_DESC, PRECINCT, JURISDICTION_CODE,  LOC_CLASSFCTN_DESC, LOCATION_DESC, STATISTICAL_MURDER_FLAG, X_COORD_CD, Y_COORD_CD, Latitude, Longitude, and Lon_Lat.  
+
+```{r remove columns, echo=TRUE}
+shoot <- distinct(shooting_csv) %>% 
+          select(OCCUR_DATE, OCCUR_TIME, BORO, PERP_AGE_GROUP, PERP_SEX, PERP_RACE, VIC_AGE_GROUP, VIC_SEX, VIC_RACE)
 ```  
+
+Next, I want to remove any rows that contain typos, missing, or 'UNKNOWN' data. I chose not to impute missing data because all missing values are strictly categorical and trying to predict what is missing is futile. 
+
+
+```{r remove rows with missing or UNKNOWN data, echo=TRUE}
+filter_values <- c("", "UNKNOWN", "(null)", "U")
+cleaned_shoot <- shoot %>% filter(!(BORO %in% filter_values) & 
+                                    !(PERP_AGE_GROUP %in% c(filter_values, "1020", "224", "940")) & 
+                                    !(PERP_SEX %in% filter_values) & 
+                                    !(PERP_RACE %in% filter_values) & 
+                                    !(VIC_AGE_GROUP %in% c(filter_values, "1022")) & 
+                                    !(VIC_SEX %in% filter_values) & 
+                                    !(VIC_RACE %in% filter_values))
+
+#cleaned_shoot <- cleaned_shoot %>% filter(PERP_AGE_GROUP == 1 & VIC_AGE_GROUP == 1)
+```  
+
+Now that my data set is cleaned, I want to transform it into a format that will be easier to work with going forward. I started by converting the OCCUR_DATE column to a date type, the OCCUR_TIME column to a time type, and the remaining columns to a factor type. This will allow me to easily sort and group our categorical data for visuals.
+
+```{r convert to factor/date/time, echo=TRUE}
+glimpse(cleaned_shoot)
+cols_to_convert <- c("BORO", "PERP_AGE_GROUP", "PERP_SEX", "PERP_RACE", "VIC_AGE_GROUP", "VIC_SEX", "VIC_RACE")
+cleaned_shoot[cols_to_convert] <- lapply(cleaned_shoot[cols_to_convert], as.factor)
+cleaned_shoot$OCCUR_DATE <- as.Date(cleaned_shoot$OCCUR_DATE, format = "%m/%d/%Y")
+cleaned_shoot$OCCUR_TIME <- as_hms(cleaned_shoot$OCCUR_TIME)
+shoot_tibble <- as_tibble(cleaned_shoot)
+shoot_tibble
+```  
+
+The following questions will be explored in this analysis  
+
+1) Does one race make up the majority of perpetrators?  
+  1b) ... majority of victims?  
+  1c) Is this proportional to a borough's racial demographic?  
+2) Do shootings occur significantly more among a specific age group?  
+  2b) ... among sex?  
+  2c) ... among race?  
+3) Do shootings occur significantly more in one month/s versus others?  
+  3b) ... in one time of day versus others?  
+4) Are there any confounding variables we must consider?  
+
+```{r frequencies}
+boro_counts <- count(shoot_tibble, BORO)
+print(boro_counts)
+
+ggplot(shoot_tibble, aes(x = BORO)) +
+  geom_bar() +
+  labs(title = "Distribution of Incidents by Borough")
+cross_tab <- table(shoot_tibble$BORO, shoot_tibble$PERP_AGE_GROUP)
+print(cross_tab)
+
+ggplot(shoot_tibble, aes(x = PERP_AGE_GROUP)) +
+  geom_bar() + 
+  labs(title = "Count of reported incidents grouped by perpetrator age")
+
+ggplot(shoot_tibble, aes(x = VIC_AGE_GROUP)) +
+  geom_bar() + 
+  labs(title = "Count of reported incidents grouped by victim age")
+
+chi_sqaure_result <- chisq.test(shoot_tibble$BORO, shoot_tibble$PERP_AGE_GROUP)
+print(chi_sqaure_result)
+contingency_table <- table(shoot_tibble$BORO, shoot_tibble$PERP_AGE_GROUP)
+
+fisher_result <- fisher.test(contingency_table, simulate.p.value = TRUE)
+print(fisher_result)
+
+chi_sqaure_result2 <- chisq.test(shoot_tibble$BORO, shoot_tibble$VIC_AGE_GROUP)
+print(chi_sqaure_result2)
+
+chi_sqaure_result3 <- chisq.test(shoot_tibble$PERP_AGE_GROUP, shoot_tibble$VIC_AGE_GROUP)
+print(chi_sqaure_result3)
+```
+For each chi square test we reject the null hypothesis, therefore, there is a relationship between BORO v.s. PERP_AGE_GROUP, BORO v.s. VIC_AGE_GROUP, and PERP_AGE_GROUP v.s. VIC_AGE_GROUP.
 
 
